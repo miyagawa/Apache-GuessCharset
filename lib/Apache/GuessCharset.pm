@@ -1,7 +1,8 @@
 package Apache::GuessCharset;
 
 use strict;
-our $VERSION = 0.02;
+our $VERSION = 0.03;
+our $DEBUG   = 0;
 
 use Apache::Constants;
 use Apache::File;
@@ -30,17 +31,25 @@ our %Prefered_MIME = (
 
 sub handler {
     my $r = shift;
-    return DECLINED unless $r->content_type eq 'text/html'; # XXX: should it be text/*?
-    return DECLINED if !-e $r->finfo or -d _;
-    my $chunk = read_chunk($r) or return DECLINED;
+    return DECLINED if
+	! $r->is_main                  or
+	$r->content_type !~ m@^text/@  or
+	$r->content_type =~ /charset=/ or
+	! -e $r->finfo                 or
+	-d _                           or
+	!(my $chunk = read_chunk($r));
 
     my @suspects = $r->dir_config->get('GuessCharsetSuspects');
     my $enc  = guess_encoding($chunk, @suspects);
-    return DECLINED unless ref $enc;
+    unless (ref $enc) {
+	warn "Couldn't guess encoding: $enc" if $DEBUG;
+	return DECLINED;
+    }
 
     my $iana    = iana_charset_name($enc->name);
-    my $charset = $Prefered_MIME{$iana} || $iana;
-    $r->content_type("text/html; charset=$charset");
+    my $charset = lc($Prefered_MIME{$iana} || $iana); # lowercased
+    warn "Guessed: $charset" if $DEBUG;
+    $r->content_type($r->content_type . "; charset=$charset");
     return OK;
 }
 
@@ -74,8 +83,9 @@ Apache::GuessCharset - adds HTTP charset by guessing file's encoding
 
 =head1 DESCRIPTION
 
-Apache::GuessCharset is an Apache handler which adds HTTP charset
-attribute by automaticaly guessing file' encodings via Encode::Guess.
+Apache::GuessCharset is an Apache fix-up handler which adds HTTP
+charset attribute by automaticaly guessing text files' encodings via
+Encode::Guess.
 
 =head1 CONFIGURATION
 

@@ -1,4 +1,9 @@
 Revision history for Perl extension Apache::GuessCharset
 
+0.02  Fri May  3 22:27:43 JST 2002
+	- uses $r->finfo and fixed some style issue
+	  (Thanks to Geoffrey Young <geoff@modperlcookbook.org>)
+	- CPAN release
+
 0.01  Tue Apr 30 14:33:20 2002
 	- original version

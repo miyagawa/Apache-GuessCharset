@@ -1,8 +1,7 @@
 package Apache::GuessCharset;
 
 use strict;
-our $VERSION = 0.01;
-
+our $VERSION = 0.02;
 
 use Apache::Constants;
 use Apache::File;
@@ -31,14 +30,13 @@ our %Prefered_MIME = (
 
 sub handler {
     my $r = shift;
-    return DECLINED unless $r->content_type eq 'text/html';
-    my $filename = $r->filename;
-    -e $filename or return DECLINED;
-    my $chunk = read_chunk($r, $filename);
+    return DECLINED unless $r->content_type eq 'text/html'; # XXX: should it be text/*?
+    return DECLINED if !-e $r->finfo or -d _;
+    my $chunk = read_chunk($r) or return DECLINED;
 
     my @suspects = $r->dir_config->get('GuessCharsetSuspects');
     my $enc  = guess_encoding($chunk, @suspects);
-    ref $enc or	return DECLINED;
+    return DECLINED unless ref $enc;
 
     my $iana    = iana_charset_name($enc->name);
     my $charset = $Prefered_MIME{$iana} || $iana;
@@ -47,11 +45,10 @@ sub handler {
 }
 
 sub read_chunk {
-    my($r, $file) = @_;
-    my $fh   = Apache::File->new($file) or die "$file: $!";
+    my $r  = shift;
+    my $fh = Apache::File->new($r->filename) or return;
     my $buffer_size = $r->dir_config('GuessCharsetBufferSize') || 512;
     read $fh, my($chunk), $buffer_size;
-    $fh->close;
     return $chunk;
 }
 
@@ -64,9 +61,8 @@ Apache::GuessCharset - adds HTTP charset by guessing file's encoding
 
 =head1 SYNOPSIS
 
-  PerlModule Apache::GuessCharset
   SetHandler perl-script
-  PerlFixupHandler Apache::GuessCharset
+  PerlFixupHandler +Apache::GuessCharset
 
   # how many bytes to read for guessing (default 512)
   PerlSetVar GuessCharsetBufferSize 1024

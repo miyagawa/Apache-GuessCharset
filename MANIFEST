@@ -1,0 +1,6 @@
+Changes
+MANIFEST
+Makefile.PL
+README
+lib/Apache/GuessCharset.pm
+t/00_compile.t
